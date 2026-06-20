@@ -448,7 +448,7 @@ def cmd_demo(args: argparse.Namespace) -> None:
     from system2.reasoning.reason_act_loop import ReActLoop
     from system2.reasoning.symbolic_rules import SymbolicRuleEngine
     from system2.mitigation.action_playbook import ActionPlaybook
-    from evaluation.metrics_collector import MetricsCollector
+    from evaluation.metrics_collector import MetricsCollector, compute_ecr, compute_fer, compute_gci, compute_ri2, compute_cas
 
     config = load_config()
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -495,6 +495,59 @@ def cmd_demo(args: argparse.Namespace) -> None:
     logger.info("  Per-attack performance:")
     for atk, m in per_attack.items():
         logger.info(f"    {atk}: Acc={m['accuracy']:.4f} FPR={m['fpr']:.6f}")
+
+    # --- Agentic Governance Metrics Calculation ---
+    model.eval()
+    all_preds = []
+    all_probs = []
+    all_targets = []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    
+    with torch.no_grad():
+        for batch_X, batch_y in test_loader:
+            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+            outputs = model(batch_X)
+            probs = torch.softmax(outputs, dim=1)
+            preds = torch.argmax(probs, dim=1)
+            all_probs.extend(probs.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy())
+            all_targets.extend(batch_y.cpu().numpy())
+            
+    all_preds = np.array(all_preds)
+    all_targets = np.array(all_targets)
+    all_probs = np.array(all_probs)
+    
+    benign_cls = label_mapping.get("Benign", 0)
+    policy_ok_count = 0
+    total_constrained = len(all_preds)
+    total_escalations = 0
+    false_escalation_count = 0
+    
+    segments = np.array_split(np.arange(total_constrained), 5)
+    ecr_segments = []
+    
+    for seg_indices in segments:
+        seg_policy_ok = 0
+        for i in seg_indices:
+            pred = all_preds[i]
+            true_label = all_targets[i]
+            conf = np.max(all_probs[i])
+            if conf >= 0.85:
+                seg_policy_ok += 1
+                policy_ok_count += 1
+            if pred != benign_cls:
+                total_escalations += 1
+                if true_label == benign_cls:
+                    false_escalation_count += 1
+        ecr_segments.append(compute_ecr(seg_policy_ok, len(seg_indices)))
+
+    ecr = compute_ecr(policy_ok_count, total_constrained)
+    fer = compute_fer(false_escalation_count, total_escalations)
+    ri2 = compute_ri2(ecr_segments)
+    gci = compute_gci([ecr, 1.0 - fer], [0.6, 0.4])
+    cas = compute_cas(ecr, fer, previous_ecr=None, delta_t=0)
+    # ----------------------------------------------
 
     quantizer = ModelQuantizer(Path("config/settings.yaml"))
     fp32_size = quantizer.measure_model_size(model)
@@ -552,6 +605,12 @@ def cmd_demo(args: argparse.Namespace) -> None:
                 f"(target <= {config['system1']['latency']['tau_edge_target']} ms)")
     logger.info(f"  Agent Latency: {react_result.latency_ms:.2f} ms  "
                 f"(target <= {config['system2']['latency']['tau_agent_target']} ms)")
+    logger.info("--- Agentic Governance Metrics ---")
+    logger.info(f"  Ethical Compliance Rate (ECR): {ecr:.4f}")
+    logger.info(f"  False Escalation Rate (FER): {fer:.4f}")
+    logger.info(f"  Governance Compliance Index (GCI): {gci:.4f}")
+    logger.info(f"  Resilience Index (RI2): {ri2:.4f}")
+    logger.info(f"  Cyber-Adaptive Score (CAS): {cas:.4f}")
     logger.info("=" * 65)
     logger.info("  [OK] Demo complete!")
 
