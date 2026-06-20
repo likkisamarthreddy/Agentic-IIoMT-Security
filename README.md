@@ -43,6 +43,62 @@ A **dual-process neuro-symbolic agentic framework** that transforms lightweight 
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Detailed Research Methodology
+
+This repository follows an evidence-first methodology: every published metric must map to a generated artifact. A full formal write-up is available in `docs/METHODOLOGY.md`; the section below summarizes the procedure used for this codebase.
+
+### 1) Research objectives
+
+- Build a dual-process security stack for IIoMT: fast edge perception + constrained gateway reasoning.
+- Keep operational behavior within strict real-time and resource constraints.
+- Preserve clinical/industrial safety by enforcing symbolic constraints and human override pathways.
+
+### 2) Experimental design
+
+1. Train and evaluate the edge model (System 1) in FP32.
+2. Quantize to INT8 and re-measure quality and runtime.
+3. Execute gateway reasoning loop (System 2) and measure convergence latency.
+4. Compute end-to-end mitigation latency by component composition.
+5. Compare all values to paper targets and retain misses transparently.
+
+### 3) Domain strategy
+
+- Medical domain: CICIoMT2024
+- Industrial domain: Edge-IIoTset
+- In the current repository state, the most complete proof chain for Table 1 and runtime/resource reporting comes from the industrial (`edge`) artifacts.
+
+### 4) Metrics and formulas used in reporting
+
+Per-class detection accuracy:
+
+$$
+Accuracy = \frac{TP}{Support}
+$$
+
+False positive rate:
+
+$$
+FPR = \frac{FP}{FP + TN} \times 100\%
+$$
+
+End-to-end mitigation latency:
+
+$$
+T_{ttm} = \tau_{edge} + \tau_{comm} + \tau_{agent} + \tau_{action}
+$$
+
+System 2 risk fusion:
+
+$$
+Risk = \alpha \cdot ClfConf + \beta \cdot Criticality + \gamma \cdot HistoricalDensity
+$$
+
+### 5) Evidence policy
+
+- Report measured values from result files, not target placeholders.
+- Keep target misses visible (do not overwrite with rounded targets).
+- Provide reproducibility commands and raw artifact pointers.
+
 ## Quick Start
 
 ### 1. Install Dependencies
@@ -205,18 +261,70 @@ Agentic AI/
 - **Safety Rules**: Device-type constraints (never auto-quarantine infusion pumps), anti-flap guards, telemetry preservation
 - **5 Mitigation Levels**: LOG_ONLY → THROTTLE → MICRO_SEGMENT → RE_AUTHENTICATE → QUARANTINE
 
-### Evaluation Targets (Paper §5)
+### Verified Results and Proof Trail (Current Repository State)
 
-| Metric | Target |
-|--------|--------|
-| DDoS Accuracy (INT8) | ≥ 99.1% |
-| Spoofing Accuracy (INT8) | ≥ 98.2% |
-| MITM Accuracy (INT8) | ≥ 97.1% |
-| Edge Inference Latency (τ_edge) | ≤ 3 ms |
-| Agent Convergence (τ_agent) | ≤ 180 ms |
-| Total Time-to-Mitigation (T_ttm) | < 250 ms |
-| Edge Peak Memory | ≤ 45 MB |
-| Edge CPU Overhead | ≤ 15% |
+The values below are taken from these generated artifacts:
+
+- `results/table1_edge.md`
+- `results/runtime_benchmark_edge.json`
+- `checkpoints/edge_iiotset/edge_results.json`
+
+#### Detection targets vs. measured INT8 results
+
+| Metric | Target | Actual | Status | Note |
+|--------|--------|--------|--------|------|
+| DDoS (aggregate) | ≥ 99.1% | **98.38%** | ⚠️ Miss | 0.72pp below target |
+| Spoofing (aggregate) | ≥ 98.2% | **99.55%** | ✅ Pass | +1.35pp |
+| MITM | ≥ 97.1% | **98.76%** | ✅ Pass | +1.66pp |
+| DDoS FPR | < 0.05% | **0.0026%** | ✅ Pass | 19x better |
+| Spoofing FPR | < 0.1% | **0.023%** | ✅ Pass | 4.3x better |
+| MITM FPR | < 0.15% | **0.0022%** | ✅ Pass | 68x better |
+
+#### Runtime/resource targets vs. measured values
+
+| Metric | Target | Actual | Status | Headroom |
+|--------|--------|--------|--------|----------|
+| Edge latency $\tau_{edge}$ | ≤ 3 ms | **0.229 ms** | ✅ Pass | 13x |
+| Agent latency $\tau_{agent}$ | ≤ 180 ms | **0.167 ms** | ✅ Pass | 1079x |
+| Time-to-mitigation $T_{ttm}$ | < 250 ms | **15.396 ms** | ✅ Pass | 16x |
+| Edge model working set | ≤ 45 MB | **9.96 MB** | ✅ Pass | 4.5x |
+| CPU steady-state per core | ≤ 15% | **2.83%** | ✅ Pass | 5.3x |
+
+#### Proof excerpt (DDoS aggregate)
+
+From confusion-matrix totals:
+
+- DDoS_HTTP: 9,544 / 9,709
+- DDoS_ICMP: 13,577 / 13,588
+- DDoS_UDP: 23,886 / 24,314
+- DDoS_TCP: 9,680 / 10,012
+
+$$
+\frac{56,687}{57,623} = 0.9838 = 98.38\%
+$$
+
+This value is reported directly to preserve scientific transparency.
+
+#### Reproducibility commands
+
+```bash
+pip install -e .
+python -m evaluation.paper_table1 --domain edge
+python -m evaluation.runtime_benchmark --domain edge
+```
+
+Then inspect:
+
+- `results/table1_edge.md`
+- `results/runtime_benchmark_edge.json`
+- `checkpoints/edge_iiotset/edge_results.json`
+
+Supporting audits:
+
+- `docs/METHODOLOGY.md`
+- `docs/TABLE1_MATHEMATICAL_AUDIT.md`
+- `docs/VERIFICATION_GUIDE.md`
+- `docs/FINAL_VERIFICATION_REPORT.md`
 
 ## Docker Deployment (Linux)
 
