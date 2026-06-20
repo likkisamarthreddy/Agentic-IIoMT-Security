@@ -1,0 +1,8 @@
+{
+  "Benign": 0,
+  "DDoS": 1,
+  "DoS": 2,
+  "MITM": 3,
+  "Reconnaissance": 4,
+  "Spoofing": 5
+}

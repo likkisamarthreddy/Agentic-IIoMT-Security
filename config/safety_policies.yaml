@@ -1,0 +1,164 @@
+# ============================================================
+# Symbolic Safety Policies for IIoMT Agentic Security
+# Used by System 2 Gateway Reasoning Engine
+# ============================================================
+
+# --- Graduated Mitigation Levels ---
+mitigation_levels:
+  - level: 0
+    name: "LOG_ONLY"
+    description: "Record event and continue monitoring"
+    risk_score_range: [0.0, 0.3]
+    requires_hitl: false
+    reversible: true
+
+  - level: 1
+    name: "THROTTLE"
+    description: "SDN traffic rate limiting to 10% baseline"
+    risk_score_range: [0.3, 0.5]
+    requires_hitl: false
+    reversible: true
+
+  - level: 2
+    name: "MICRO_SEGMENT"
+    description: "Isolate to read-only VLAN, preserve telemetry"
+    risk_score_range: [0.5, 0.7]
+    requires_hitl: false
+    reversible: true
+
+  - level: 3
+    name: "RE_AUTHENTICATE"
+    description: "Force cryptographic re-authentication"
+    risk_score_range: [0.7, 0.85]
+    requires_hitl: false
+    reversible: true
+
+  - level: 4
+    name: "QUARANTINE"
+    description: "Full network isolation"
+    risk_score_range: [0.85, 1.0]
+    requires_hitl: true  # Always needs clinician approval for critical devices
+    reversible: true
+
+# --- Device-Type Specific Constraints ---
+device_constraints:
+  infusion_pump:
+    max_auto_mitigation_level: 2  # Never auto-quarantine
+    preserve_streams:
+      - "drug_delivery_telemetry"
+      - "dosage_confirmation"
+    forbidden_actions:
+      - "QUARANTINE"  # Cannot auto-isolate during active infusion
+    emergency_override: true
+
+  patient_monitor:
+    max_auto_mitigation_level: 2
+    preserve_streams:
+      - "vital_signs"
+      - "ecg_waveform"
+      - "spo2_readings"
+    forbidden_actions:
+      - "QUARANTINE"
+    emergency_override: true
+
+  anesthesia_machine:
+    max_auto_mitigation_level: 1  # Most conservative
+    preserve_streams:
+      - "gas_flow_telemetry"
+      - "ventilator_parameters"
+      - "patient_vitals"
+    forbidden_actions:
+      - "QUARANTINE"
+      - "MICRO_SEGMENT"  # Cannot restrict during active surgery
+    emergency_override: true
+
+  lab_analyzer:
+    max_auto_mitigation_level: 3
+    preserve_streams:
+      - "result_reporting"
+    forbidden_actions: []
+    emergency_override: false
+
+  env_sensor:
+    max_auto_mitigation_level: 4  # Can be fully isolated
+    preserve_streams: []
+    forbidden_actions: []
+    emergency_override: false
+
+  industrial_plc:
+    max_auto_mitigation_level: 2
+    preserve_streams:
+      - "process_control_feedback"
+      - "safety_interlock_status"
+    forbidden_actions:
+      - "QUARANTINE"
+    emergency_override: true
+
+# --- HITL Override Policies ---
+hitl_policies:
+  # Time window for clinician response before auto-escalation
+  response_timeout_sec: 120
+  # If no response, fall back to max_auto_mitigation_level
+  timeout_action: "APPLY_MAX_AUTO"
+  # Allow clinician to override any mitigation
+  allow_full_override: true
+  # Require justification for overriding HIGH+ risk alerts
+  require_justification_above: 0.7
+  # Alert escalation chain
+  escalation_chain:
+    - role: "security_analyst"
+      timeout_sec: 60
+    - role: "clinical_engineer"
+      timeout_sec: 60
+    - role: "department_head"
+      timeout_sec: 120
+
+# --- Symbolic Rule Validation ---
+rules:
+  # Rule 1: Never fully isolate life-critical devices without HITL
+  - id: "RULE_001"
+    name: "Life-Critical Protection"
+    condition: "device.criticality == 'LIFE_CRITICAL' AND action.level >= 4"
+    action: "BLOCK_AND_NOTIFY"
+    message: "Cannot quarantine life-critical device without clinician approval"
+    priority: 1
+
+  # Rule 2: Preserve vital telemetry during any mitigation
+  - id: "RULE_002"
+    name: "Telemetry Preservation"
+    condition: "device.preserve_streams IS NOT EMPTY"
+    action: "ENSURE_STREAM_WHITELIST"
+    message: "Critical telemetry streams must remain active during mitigation"
+    priority: 1
+
+  # Rule 3: Rate-limit mitigation changes to prevent flapping
+  - id: "RULE_003"
+    name: "Anti-Flap Guard"
+    condition: "device.mitigation_changes_last_5min > 3"
+    action: "HOLD_CURRENT_STATE"
+    message: "Too many mitigation changes detected — holding current state"
+    priority: 2
+
+  # Rule 4: Cross-device correlation before escalation
+  - id: "RULE_004"
+    name: "Correlated Threat Assessment"
+    condition: "concurrent_alerts_same_subnet >= 3"
+    action: "ESCALATE_SUBNET_RESPONSE"
+    message: "Multiple correlated alerts detected — subnet-level response initiated"
+    priority: 2
+
+  # Rule 5: False-positive rescission on context match
+  - id: "RULE_005"
+    name: "Operational Change Detection"
+    condition: "alert.type == 'ANOMALOUS_COMMAND' AND context.recent_prescription_change == true"
+    action: "RESCIND_AND_UPDATE_BASELINE"
+    message: "Anomaly matches recent operational change — updating baseline"
+    priority: 3
+
+  # Rule 6: Time-of-day sensitivity
+  - id: "RULE_006"
+    name: "Off-Hours Escalation"
+    condition: "current_time NOT IN business_hours AND risk_score > 0.5"
+    action: "REDUCE_AUTO_THRESHOLD"
+    message: "Off-hours operation — lowering autonomous mitigation threshold"
+    priority: 3

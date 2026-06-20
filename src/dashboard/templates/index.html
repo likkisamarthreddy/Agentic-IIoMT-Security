@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIoMT Neuro-Symbolic Security Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark));
+            color: var(--text-main);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        .navbar {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header-section {
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        #notifications-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            animation: fadeIn 0.5s ease-out forwards;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+        }
+
+        .glass-card.critical::before { background: var(--danger); }
+        .glass-card.high::before { background: var(--warning); }
+        .glass-card.handled { opacity: 0.6; filter: grayscale(50%); }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .device-id {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge.info { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        .meta-text {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .reasoning-box {
+            background: rgba(0,0,0,0.2);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            margin-bottom: 1.5rem;
+            flex-grow: 1;
+        }
+
+        .action-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: auto;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-main);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .btn-approve { background: rgba(16, 185, 129, 0.1); border-color: var(--success); color: #34d399; }
+        .btn-approve:hover { background: var(--success); color: #fff; }
+
+        .btn-reject { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); color: #f87171; }
+        .btn-reject:hover { background: var(--danger); color: #fff; }
+
+        .btn-modify { background: rgba(255,255,255,0.05); }
+        .btn-modify:hover { background: rgba(255,255,255,0.15); }
+
+        .handled-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: center;
+            width: 100%;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px dashed rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Pulse animation for live status */
+        .live-indicator {
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="navbar-brand">IIoMT Neuro-Symbolic Agent</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+            <span class="live-indicator"></span> System Live
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header-section">
+            <h1 class="header-title">Clinician Command Center</h1>
+            <p class="header-subtitle">Real-time threat intelligence and autonomous mitigation overrides.</p>
+        </div>
+
+        <div id="notifications-container">
+            <div class="empty-state">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">🛡️</div>
+                <h3>System Secure</h3>
+                <p>No active threats requiring clinician intervention.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchNotifications() {
+            try {
+                const res = await fetch('/api/notifications');
+                const data = await res.json();
+                const container = document.getElementById('notifications-container');
+                
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">🛡️</div>
+                            <h3>System Secure</h3>
+                            <p>No active threats requiring clinician intervention.</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = '';
+                data.forEach((n, idx) => {
+                    const isHandled = n.status ? 'handled' : '';
+                    const cardClass = n.anomaly_score > 0.9 ? 'critical' : 'high';
+                    const scoreBadge = n.anomaly_score > 0.9 ? 'danger' : 'warning';
+                    const dateStr = new Date(n.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    
+                    const card = document.createElement('div');
+                    card.className = \`glass-card \${cardClass} \${isHandled}\`;
+                    card.style.animationDelay = \`\${idx * 0.1}s\`;
+                    
+                    card.innerHTML = \`
+                        <div class="card-header">
+                            <h3 class="device-id">\${n.device_id}</h3>
+                            <span class="badge \${scoreBadge}">Score: \${(n.anomaly_score * 100).toFixed(1)}%</span>
+                        </div>
+                        
+                        <div class="meta-text">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            \${dateStr} &nbsp;&bull;&nbsp; \${n.edge_agent}
+                        </div>
+
+                        <div class="action-row">
+                            <span style="color: var(--text-muted); font-size: 0.9rem;">AI Mitigation:</span>
+                            <span class="badge info">\${n.action_taken}</span>
+                        </div>
+
+                        <div class="reasoning-box">
+                            <strong>SLM Reasoning:</strong><br>
+                            \${n.reasoning}
+                        </div>
+                        
+                        \${!n.status ? \`
+                        <div class="btn-group">
+                            <button class="btn btn-approve" onclick="sendOverride('\${n.device_id}', 'APPROVE')">Approve</button>
+                            <button class="btn btn-reject" onclick="sendOverride('\${n.device_id}', 'REJECT')">Rollback</button>
+                            <button class="btn btn-modify" onclick="promptModify('\${n.device_id}')">Modify</button>
+                        </div>
+                        \` : \`<div class="handled-badge">Resolved: \${n.status} \${n.action_taken ? '('+n.action_taken+')' : ''}</div>\`}
+                    \`;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Failed to fetch notifications:", err);
+            }
+        }
+
+        async function sendOverride(deviceId, action, newMitigation = null) {
+            await fetch('/api/override', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ device_id: deviceId, action: action, new_mitigation: newMitigation })
+            });
+            fetchNotifications(); // Refresh immediately
+        }
+
+        function promptModify(deviceId) {
+            const newAction = prompt("Enter manual mitigation override (e.g., THROTTLE_25%, MIGRATE_VLAN, LOG_ONLY):");
+            if (newAction) {
+                sendOverride(deviceId, 'MODIFY', newAction);
+            }
+        }
+
+        // Poll every 2 seconds
+        setInterval(fetchNotifications, 2000);
+        fetchNotifications();
+    </script>
+</body>
+</html>

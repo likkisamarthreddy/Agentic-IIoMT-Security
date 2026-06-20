@@ -1,0 +1,241 @@
+# ============================================================
+# Cross-Domain Agentic Security for Industrial Medical IoT
+# Docker Compose — Multi-Container Topology
+# ============================================================
+#
+# Services:
+#   mosquitto     — Eclipse Mosquitto MQTT broker (System 1 ↔ System 2 bus)
+#   edge-node-{1,2,3} — System 1 edge reflex containers (CNN-BiGRU)
+#   gateway       — System 2 reasoning engine (ReAct loop)
+#   dashboard     — HITL clinician dashboard (Flask-SocketIO)
+#
+# Usage:
+#   docker compose up --build
+#   docker compose down -v
+# ============================================================
+
+version: "3.9"
+
+# ------------------------------------------------------------------
+# Networks
+# ------------------------------------------------------------------
+networks:
+  iimt-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ------------------------------------------------------------------
+# Volumes
+# ------------------------------------------------------------------
+volumes:
+  shared-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./shared
+
+# ------------------------------------------------------------------
+# Services
+# ------------------------------------------------------------------
+services:
+
+  # ── MQTT Broker ──────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: iimt-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - iimt-network
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Edge Node 1 ─────────────────────────────────────────────
+  edge-node-1:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.edge
+    container_name: iimt-edge-1
+    restart: unless-stopped
+    environment:
+      - AGENT_ID=edge-1
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - NUM_FEATURES=${NUM_FEATURES:-46}
+      - SEQUENCE_LENGTH=${SEQUENCE_LENGTH:-20}
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
+    cap_add:
+      - CAP_NET_ADMIN
+      - CAP_SYS_ADMIN
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - shared-data:/app/shared:ro
+    networks:
+      - iimt-network
+
+  # ── Edge Node 2 ─────────────────────────────────────────────
+  edge-node-2:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.edge
+    container_name: iimt-edge-2
+    restart: unless-stopped
+    environment:
+      - AGENT_ID=edge-2
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - NUM_FEATURES=${NUM_FEATURES:-46}
+      - SEQUENCE_LENGTH=${SEQUENCE_LENGTH:-20}
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
+    cap_add:
+      - CAP_NET_ADMIN
+      - CAP_SYS_ADMIN
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - shared-data:/app/shared:ro
+    networks:
+      - iimt-network
+
+  # ── Edge Node 3 ─────────────────────────────────────────────
+  edge-node-3:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.edge
+    container_name: iimt-edge-3
+    restart: unless-stopped
+    environment:
+      - AGENT_ID=edge-3
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - NUM_FEATURES=${NUM_FEATURES:-46}
+      - SEQUENCE_LENGTH=${SEQUENCE_LENGTH:-20}
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
+    cap_add:
+      - CAP_NET_ADMIN
+      - CAP_SYS_ADMIN
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - shared-data:/app/shared:ro
+    networks:
+      - iimt-network
+
+  # ── System 2 Gateway ────────────────────────────────────────
+  gateway:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.gateway
+    container_name: iimt-gateway
+    restart: unless-stopped
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "2.0"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      edge-node-1:
+        condition: service_started
+      edge-node-2:
+        condition: service_started
+      edge-node-3:
+        condition: service_started
+    volumes:
+      - shared-data:/app/shared
+    networks:
+      - iimt-network
+
+  # ── HITL Dashboard ──────────────────────────────────────────
+  dashboard:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.gateway
+    container_name: iimt-dashboard
+    restart: unless-stopped
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5000:5000"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+    depends_on:
+      gateway:
+        condition: service_started
+    volumes:
+      - shared-data:/app/shared:ro
+    networks:
+      - iimt-network
+    command: ["python", "-m", "dashboard.app"]
+
+  # ── tcpreplay Emulator ──────────────────────────────────────
+  tcpreplay:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.gateway
+    container_name: iimt-tcpreplay
+    restart: unless-stopped
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - TARGET_PPS=500
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - iimt-network
+    command: ["python", "-m", "scripts.tcpreplay_emulator"]
+
+  # ── Ollama (System 2 SLM) ───────────────────────────────────
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: iimt-ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ./ollama_data:/root/.ollama
+  #   networks:
+  #     - iimt-network

@@ -1,0 +1,291 @@
+{
+  "config": {
+    "batch_size": 1024,
+    "epochs": 25,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "early_stopping_patience": 5,
+    "conv_filters": [
+      64,
+      128
+    ],
+    "conv_kernel_size": 3,
+    "gru_hidden_size": 64,
+    "gru_num_layers": 2,
+    "gru_dropout": 0.3,
+    "cnn_dropout": 0.25,
+    "fc_hidden": 64,
+    "fc_dropout": 0.3,
+    "num_classes": 6,
+    "random_seed": 42
+  },
+  "label_mapping": {
+    "Benign": 0,
+    "DDoS": 1,
+    "DoS": 2,
+    "MITM": 3,
+    "Reconnaissance": 4,
+    "Spoofing": 5
+  },
+  "feature_columns": [
+    "Header_Length",
+    "Protocol Type",
+    "Duration",
+    "Rate",
+    "Srate",
+    "Drate",
+    "fin_flag_number",
+    "syn_flag_number",
+    "rst_flag_number",
+    "psh_flag_number",
+    "ack_flag_number",
+    "ece_flag_number",
+    "cwr_flag_number",
+    "ack_count",
+    "syn_count",
+    "fin_count",
+    "rst_count",
+    "HTTP",
+    "HTTPS",
+    "DNS",
+    "Telnet",
+    "SMTP",
+    "SSH",
+    "IRC",
+    "TCP",
+    "UDP",
+    "DHCP",
+    "ARP",
+    "ICMP",
+    "IGMP",
+    "IPv",
+    "LLC",
+    "Tot sum",
+    "Min",
+    "Max",
+    "AVG",
+    "Std",
+    "Tot size",
+    "IAT",
+    "Number",
+    "Magnitue",
+    "Radius",
+    "Covariance",
+    "Variance",
+    "Weight",
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id",
+    "Attack_label"
+  ],
+  "num_features": 97,
+  "best_val_accuracy": 0.8578783986784241,
+  "test_results": {
+    "accuracy": 0.8583283411393094,
+    "per_class_report": {
+      "Benign": {
+        "precision": 0.9992264638462971,
+        "recall": 0.9547482596228635,
+        "f1-score": 0.9764811344463815,
+        "support": 258421.0
+      },
+      "DDoS": {
+        "precision": 0.951517909380485,
+        "recall": 0.6209992193598751,
+        "f1-score": 0.7515236153968589,
+        "support": 117852.0
+      },
+      "DoS": {
+        "precision": 0.3587385794282346,
+        "recall": 0.8690871443361536,
+        "f1-score": 0.5078490888798489,
+        "support": 28011.0
+      },
+      "MITM": {
+        "precision": 0.18348214285714284,
+        "recall": 0.9513888888888888,
+        "f1-score": 0.30763473053892215,
+        "support": 432.0
+      },
+      "Reconnaissance": {
+        "precision": 0.8923112913287585,
+        "recall": 0.8837658325610133,
+        "f1-score": 0.8880180040353872,
+        "support": 12948.0
+      },
+      "Spoofing": {
+        "precision": 0.6526185494090949,
+        "recall": 0.9617790132036136,
+        "f1-score": 0.7775963479940303,
+        "support": 23024.0
+      },
+      "accuracy": 0.8583283411393094,
+      "macro avg": {
+        "precision": 0.672982489375002,
+        "recall": 0.8736280596620679,
+        "f1-score": 0.7015171535485715,
+        "support": 440688.0
+      },
+      "weighted avg": {
+        "precision": 0.923707515034971,
+        "recall": 0.8583283411393094,
+        "f1-score": 0.8728884989634164,
+        "support": 440688.0
+      }
+    },
+    "mean_latency_ms": 0.0013525304899697681,
+    "p95_latency_ms": 0.0019972368164062502,
+    "mean_confidence": 0.9049710631370544,
+    "confusion_matrix": [
+      [
+        246727,
+        5,
+        25,
+        816,
+        240,
+        10608
+      ],
+      [
+        1,
+        73186,
+        43477,
+        267,
+        785,
+        136
+      ],
+      [
+        2,
+        3655,
+        24344,
+        10,
+        0,
+        0
+      ],
+      [
+        6,
+        0,
+        2,
+        411,
+        13,
+        0
+      ],
+      [
+        19,
+        69,
+        12,
+        362,
+        11443,
+        1043
+      ],
+      [
+        163,
+        0,
+        0,
+        374,
+        343,
+        22144
+      ]
+    ]
+  },
+  "quantization": {
+    "fp32_size_mb": 0.7104158401489258,
+    "int8_size_mb": 0.26706409454345703,
+    "size_reduction_pct": 62.407356445279724,
+    "int8_accuracy": 0.8206962749155865,
+    "int8_latency_ms": 0.12712811480544803
+  },
+  "training_history": {
+    "train_loss": [
+      0.44675916658680526,
+      0.3455570714119449,
+      0.31415012883684074,
+      0.30046567305120647,
+      0.29162839059858037,
+      0.28655433582405765,
+      0.28396989987898696,
+      0.28084957136261657,
+      0.27821209808781183
+    ],
+    "val_loss": [
+      0.30972473231568426,
+      0.2638869024908698,
+      0.2699649183399671,
+      0.23751673338654455,
+      0.28555606922230004,
+      0.23098775884385722,
+      0.26348064096212187,
+      0.3026722991752666,
+      0.22294216837967146
+    ],
+    "train_acc": [
+      0.7726028356448277,
+      0.8056385160663524,
+      0.8345361661902988,
+      0.8438712902388193,
+      0.8471437865846128,
+      0.847722430069233,
+      0.84842069229101,
+      0.8490931829962451,
+      0.8499052288948299
+    ],
+    "val_acc": [
+      0.7883890116772486,
+      0.8401242608115529,
+      0.8562241596057056,
+      0.8578783986784241,
+      0.8488492940551776,
+      0.8491964800334024,
+      0.8447034850210807,
+      0.8367567837417118,
+      0.8533672501509011
+    ]
+  }
+}

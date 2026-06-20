@@ -1,0 +1,72 @@
+# ============================================================
+# Cross-Domain Agentic Security for Industrial Medical IoT
+# Dockerfile — System 2 Gateway / HITL Dashboard Container
+# ============================================================
+#
+# Shared image for:
+#   • gateway   service — runs  python -m system2.gateway_agent
+#   • dashboard service — runs  python -m dashboard.app
+#
+# Memory budget:  512 MB (gateway) / 512 MB (dashboard)
+# CPU budget:     2.0 cores (gateway) / 1.0 cores (dashboard)
+# ============================================================
+
+FROM python:3.11-slim AS base
+
+# ── Environment ────────────────────────────────────────────────
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# ── System dependencies ───────────────────────────────────────
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# ── Python dependencies ──────────────────────────────────────
+# CPU-only PyTorch first (large, cached layer)
+RUN pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu
+
+# Remaining packages in a separate layer for faster rebuilds
+RUN pip install --no-cache-dir \
+    numpy>=1.26.0 \
+    paho-mqtt>=2.0.0 \
+    flask>=3.0.0 \
+    flask-socketio>=5.3.0 \
+    scipy>=1.12.0 \
+    psutil>=5.9.0 \
+    pyyaml>=6.0.0 \
+    requests>=2.31.0 \
+    scikit-learn>=1.4.0 \
+    matplotlib>=3.8.0
+
+# ── Application code ──────────────────────────────────────────
+COPY system2/    /app/system2/
+COPY dashboard/  /app/dashboard/
+COPY config/     /app/config/
+COPY data/       /app/data/
+COPY evaluation/ /app/evaluation/
+
+# ── Exposed ports ─────────────────────────────────────────────
+# Dashboard Flask-SocketIO server
+EXPOSE 5000
+
+# ── Health check ──────────────────────────────────────────────
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:5000/health 2>/dev/null || \
+        python -c "import psutil, sys; procs=[p for p in psutil.process_iter(['name','cmdline']) if 'gateway_agent' in ' '.join(p.info.get('cmdline') or [])]; sys.exit(0 if procs else 1)"
+
+# ── Labels ────────────────────────────────────────────────────
+LABEL maintainer="IIoMT Security Team" \
+      component="system2-gateway" \
+      description="System 2 Gateway Reasoning Engine + HITL Dashboard"
+
+# ── Default entry point (gateway) ─────────────────────────────
+# Override with `command:` in docker-compose for the dashboard
+CMD ["python", "-m", "system2.gateway_agent"]

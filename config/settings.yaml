@@ -1,0 +1,256 @@
+# ============================================================
+# Cross-Domain Agentic Security for Industrial Medical IoT
+# Global Configuration
+# ============================================================
+
+# --- Project Metadata ---
+project:
+  name: "Cross-Domain Agentic Security for IIoMT"
+  version: "1.0.0"
+
+# --- Dataset Configuration ---
+data:
+  # Feature dimensions (CICIoMT2023 schema)
+  num_features: 46
+  # Sliding window for temporal sequences
+  window_size: 10
+  # Traffic replay rate (packets/sec)
+  replay_rate: 500
+  # Train/test split ratio
+  test_ratio: 0.2
+  random_seed: 42
+  # Attack categories
+  attack_types:
+    - "Benign"
+    - "DDoS"
+    - "DoS"
+    - "Reconnaissance"
+    - "Spoofing"
+    - "MITM"
+  num_classes: 6
+  # Synthetic data generation
+  synthetic:
+    num_samples: 100000
+    benign_ratio: 0.4
+    ddos_ratio: 0.15
+    dos_ratio: 0.15
+    recon_ratio: 0.10
+    spoofing_ratio: 0.10
+    mitm_ratio: 0.10
+
+# --- Edge-IIoTset Dataset (INDUSTRIAL DOMAIN — trained SEPARATELY, never merged with CIC) ---
+edge_iiotset:
+  # Auto-discovered if null; point to the extracted Edge-IIoTset folder or the
+  # DNN-EdgeIIoT-dataset.csv directly (File 3.1 — the curated DL dataset).
+  # On KAGGLE the dataset mounts read-only (no local disk used) at:
+  #   /kaggle/input/datasets/mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot/Edge-IIoTset dataset
+  # For local training, set this to your extracted folder or the CSV path.
+  dataset_path: null
+  # Preferred curated CSV (File 3.1). The loader searches for this filename.
+  preferred_csv: "DNN-EdgeIIoT-dataset.csv"
+  test_ratio: 0.2
+  random_seed: 42
+  max_rows: null          # null = use all rows; set an int to subsample for quick runs
+  # Standard leakage / identifier columns removed by the official Edge-IIoTset recipe
+  drop_columns:
+    - "frame.time"
+    - "ip.src_host"
+    - "ip.dst_host"
+    - "arp.src.proto_ipv4"
+    - "arp.dst.proto_ipv4"
+    - "http.file_data"
+    - "http.request.full_uri"
+    - "icmp.transmit_timestamp"
+    - "http.request.uri.query"
+    - "tcp.options"
+    - "tcp.payload"
+    - "tcp.srcport"
+    - "tcp.dstport"
+    - "udp.port"
+    - "mqtt.msg"
+  # Native label columns in the DNN dataset
+  label_column: "Attack_type"
+  binary_column: "Attack_label"
+  # Native classes (industrial). 'Normal' is the benign baseline.
+  classes:
+    - "Normal"
+    - "Backdoor"
+    - "Vulnerability_scanner"
+    - "DDoS_ICMP"
+    - "Password"
+    - "Port_Scanning"
+    - "DDoS_UDP"
+    - "DDoS_HTTP"
+    - "DDoS_TCP"
+    - "SQL_injection"
+    - "Ransomware"
+    - "Uploading"
+    - "MITM"
+    - "XSS"
+    - "Fingerprinting"
+  # Output directory for this domain's artifacts (kept separate from CIC)
+  output_dir: "checkpoints/edge_iiotset"
+
+# --- System 1: Edge Reflex Layer ---
+system1:
+  model:
+    # CNN-BiGRU Architecture
+    # sequence_length is the canonical input window for the deployed model.
+    # It MUST match the exported ONNX (checkpoints/*_int8.onnx) sequence dim.
+    # The active build (build_kaggle.py) trains with window_size=1.
+    sequence_length: 1
+    conv_filters: [64, 128]
+    conv_kernel_size: 3
+    gru_hidden_size: 64
+    gru_num_layers: 2
+    gru_dropout: 0.3
+    fc_hidden: 64
+    cnn_dropout: 0.25
+    fc_dropout: 0.3
+  training:
+    epochs: 50
+    batch_size: 256
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    patience: 10  # Early stopping patience
+    scheduler_factor: 0.5
+    scheduler_patience: 5
+  quantization:
+    backend: "qnnpack"  # 'fbgemm' for x86 linux, 'qnnpack' for windows/mac
+    calibration_samples: 500
+    target_model_size_mb: 15.0
+  pruning:
+    sparsity: 0.3  # 30% channel pruning
+    pruning_norm: 1  # L1 norm
+  # KDE Anomaly Threshold
+  kde:
+    bandwidth_method: "scott"
+    percentile: 99
+    refit_interval: 100  # Refit KDE every N normal samples
+    window_size: 1000
+  # Emergency Brake
+  emergency_brake:
+    score_window: 10  # Number of recent scores to average
+    min_confidence: 0.5
+
+  # Latency targets (ms)
+  latency:
+    tau_edge_target: 3.0  # ms — per packet burst
+  # Memory targets
+  memory:
+    peak_ram_mb: 45
+    model_size_mb: 15
+
+# --- System 2: Gateway Reasoning Engine ---
+system2:
+  # Risk Metric Weights (Equation 1)
+  risk_metric:
+    alpha: 0.5    # Classifier confidence weight
+    beta: 0.3     # Device criticality weight
+    gamma: 0.2    # Historical density weight
+  # Reasoning Engine
+  reasoning:
+    max_iterations: 5  # Max ReAct loop iterations
+    convergence_threshold: 0.85  # Minimum confidence to act
+  # SLM Configuration (optional Ollama)
+  slm:
+    enabled: false
+    model_name: "phi3:mini"
+    ollama_host: "http://localhost:11434"
+    timeout_ms: 5000
+    max_tokens: 512
+  # Latency targets
+  latency:
+    tau_agent_target: 180.0  # ms — reasoning convergence
+    tau_comm_target: 10.0    # ms — MQTT communication
+    tau_action_target: 5.0   # ms — SDN action execution
+    t_ttm_target: 250.0     # ms — total time-to-mitigation
+
+# --- MQTT Broker Configuration ---
+mqtt:
+  broker_host: "localhost"
+  broker_port: 1883
+  keepalive: 60
+  topics:
+    traffic_stream: "iimt/traffic/stream"
+    edge_alerts: "iimt/edge/alerts"
+    gateway_commands: "iimt/gateway/commands"
+    mitigation_actions: "iimt/mitigation/actions"
+    hitl_notifications: "iimt/hitl/notifications"
+    metrics: "iimt/metrics/telemetry"
+  qos: 1
+
+# --- Dashboard Configuration ---
+dashboard:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  poll_interval_ms: 1000
+
+# --- Device Criticality Matrix ---
+devices:
+  criticality_levels:
+    LIFE_CRITICAL: 1.0     # Infusion pumps, ventilators
+    HIGH: 0.8              # Patient monitors, anesthesia
+    MEDIUM: 0.6            # Lab equipment, imaging
+    LOW: 0.3               # Environmental sensors
+    INFRASTRUCTURE: 0.4    # Network switches, gateways
+  default_devices:
+    - id: "dev-001"
+      name: "Infusion Pump A"
+      type: "infusion_pump"
+      criticality: "LIFE_CRITICAL"
+      protocol: "MQTT"
+    - id: "dev-002"
+      name: "Patient Monitor B"
+      type: "patient_monitor"
+      criticality: "HIGH"
+      protocol: "CoAP"
+    - id: "dev-003"
+      name: "Anesthesia Machine C"
+      type: "anesthesia_machine"
+      criticality: "LIFE_CRITICAL"
+      protocol: "HL7"
+    - id: "dev-004"
+      name: "Lab Analyzer D"
+      type: "lab_analyzer"
+      criticality: "MEDIUM"
+      protocol: "DICOM"
+    - id: "dev-005"
+      name: "Temperature Sensor E"
+      type: "env_sensor"
+      criticality: "LOW"
+      protocol: "MQTT"
+    - id: "dev-006"
+      name: "Modbus PLC F"
+      type: "industrial_plc"
+      criticality: "HIGH"
+      protocol: "Modbus"
+
+# --- Infrastructure ---
+infrastructure:
+  edge_containers:
+    count: 3
+    memory_limit: "128m"
+    cpu_limit: 0.5
+  gateway:
+    memory_limit: "512m"
+    cpu_limit: 2.0
+
+# --- Evaluation ---
+evaluation:
+  benchmark_iterations: 1000
+  warmup_iterations: 100
+  attack_scenarios:
+    - name: "DDoS Flood"
+      type: "ddos"
+      intensity: "high"
+      duration_sec: 60
+    - name: "Device Spoofing"
+      type: "spoofing"
+      intensity: "medium"
+      duration_sec: 45
+    - name: "MITM Interception"
+      type: "mitm"
+      intensity: "low"
+      duration_sec: 30

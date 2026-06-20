@@ -1,0 +1,46 @@
+# ============================================================
+# Cross-Domain Agentic Security for Industrial Medical IoT
+# Dockerfile — System 1 Edge Reflex Container
+# ============================================================
+
+FROM debian:bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake wget curl ca-certificates \
+    libmosquitto-dev nlohmann-json3-dev \
+    pkg-config
+
+# Download ONNX Runtime C/C++ API
+RUN wget -qO- https://github.com/microsoft/onnxruntime/releases/download/v1.17.1/onnxruntime-linux-x64-1.17.1.tgz | tar xvz -C /opt && \
+    ln -s /opt/onnxruntime-linux-x64-1.17.1 /opt/onnxruntime
+
+WORKDIR /build
+# Copy source
+COPY system1/CMakeLists.txt system1/edge_agent.cpp ./
+
+# Build
+RUN cmake -DONNXRUNTIME_DIR=/opt/onnxruntime . && make
+
+# ── Runtime Stage ─────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmosquitto1 iproute2 procps && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy ONNX Runtime shared library
+COPY --from=builder /opt/onnxruntime/lib/libonnxruntime.so.1.17.1 /usr/lib/libonnxruntime.so.1.17.1
+RUN ln -s /usr/lib/libonnxruntime.so.1.17.1 /usr/lib/libonnxruntime.so
+
+# Copy compiled C++ agent
+COPY --from=builder /build/edge_agent /usr/local/bin/edge_agent
+
+WORKDIR /app
+COPY config/ /app/config/
+COPY checkpoints/ /app/checkpoints/
+
+LABEL maintainer="IIoMT Security Team" \
+      component="system1-edge-cpp" \
+      description="System 1 C++ Edge Agent"
+
+CMD ["edge_agent"]

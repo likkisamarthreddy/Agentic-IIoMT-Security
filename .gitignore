@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Logs & local run output ---
+*.log
+artifacts/
+results/
+
+# --- Datasets (large; not committed — see README for how to obtain) ---
+datasets/
+CICIOMT24/
+edge_iiotset/
+output_extracted/
+*.zip
+DNN-EdgeIIoT-dataset.csv
+*.csv
+
+# --- Model artifacts (large binaries) ---
+*.onnx
+*.pt
+
+# --- OS / editor ---
+.DS_Store
+.vscode/
+.idea/
