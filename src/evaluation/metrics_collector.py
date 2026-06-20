@@ -502,6 +502,37 @@ class MetricsCollector:
 
 
 # ---------------------------------------------------------------------------
+# Governance Metrics (AAIF Paper)
+# ---------------------------------------------------------------------------
+
+def compute_ecr(policy_ok_count: int, total_constrained: int) -> float:
+    """Ethical Compliance Rate (ECR)"""
+    return policy_ok_count / total_constrained if total_constrained > 0 else 1.0
+
+def compute_fer(false_escalation_count: int, total_escalations: int) -> float:
+    """False Escalation Rate (FER)"""
+    return false_escalation_count / total_escalations if total_escalations > 0 else 0.0
+
+def compute_gci(compliance_ratios: List[float], weights: List[float]) -> float:
+    """Governance Compliance Index (GCI)"""
+    if not compliance_ratios or not weights or sum(weights) == 0:
+        return 0.0
+    return sum(c * w for c, w in zip(compliance_ratios, weights)) / sum(weights)
+
+def compute_ri2(ecr_segments: List[float]) -> float:
+    """Resilience Index (RI2)"""
+    if not ecr_segments:
+        return 1.0
+    return max(0.0, 1.0 - float(np.var(ecr_segments)))
+
+def compute_cas(current_ecr: float, fer: float, previous_ecr: float = None, delta_t: float = 1.0) -> float:
+    """Cyber-Adaptive Score (CAS)"""
+    if previous_ecr is None or delta_t <= 0:
+        return current_ecr * (1.0 - fer)
+    rate_of_change = (current_ecr - previous_ecr) / delta_t
+    return current_ecr * (1.0 - fer) + rate_of_change
+
+# ---------------------------------------------------------------------------
 # Smoke test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
