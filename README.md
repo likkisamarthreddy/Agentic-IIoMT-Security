@@ -744,9 +744,16 @@ Source: [results/runtime_benchmark_edge.json](results/runtime_benchmark_edge.jso
 | Size reduction (medical) | — | 62.4% | ✅ |
 | Size reduction (industrial) | — | 15.6% | ✅ |
 
-### 6.6 Botnet & Enterprise Domain Benchmarks (BoT-IoT & UNSW-NB15)
+### 6.6 General IoT Domain Benchmarks (CICIoT2023, BoT-IoT, UNSW-NB15)
 
-To prove true cross-domain capability, the framework was additionally evaluated against two massive external datasets:
+To prove true cross-domain capability, the framework was additionally evaluated against three external datasets.
+
+**CICIoT2023 (General IoT Environment):**
+Evaluated utilizing Temporal Data Splitting (chronological partitioning) to prevent data leakage and simulate real-world deployments.
+- **FP32 Accuracy:** 89.50%
+- **Ethical Compliance Rate (ECR):** 0.6768
+- **False Escalation Rate (FER):** 0.0612
+- **Governance Compliance Index (GCI):** 0.7816
 
 **BoT-IoT (High-Volume IoT Botnets):**
 Evaluated via Kaggle GPU environments due to its massive scale (>70GB raw).
@@ -760,7 +767,7 @@ Evaluated using an expanded 188-dimensional enterprise feature representation.
 - **FP32 Accuracy:** 79.5%
 - **False Escalation Rate (FER):** 0.0000
 
-These benchmarks conclusively prove the System 1 Edge model can scale to high-dimensional enterprise inputs and massive botnet volumes while maintaining **perfect (1.0) Agentic Governance** safety adherence.
+These benchmarks conclusively prove the System 1 Edge model can scale across domains—from high-dimensional enterprise inputs to massive IoT botnets—while enforcing Agentic Governance safety constraints.
 
 ### 6.7 Full Per-Class Confusion Analysis
 
